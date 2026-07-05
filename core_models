@@ -1,0 +1,67 @@
+from datetime import datetime
+from enum import Enum
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, UUID4
+import uuid
+
+class ObjectType(str, Enum):
+    PAPER = "paper"
+    CLAIM = "claim"
+    EVIDENCE = "evidence"
+    EXPERIMENT = "experiment"
+    GAP = "gap"
+    HYPOTHESIS = "hypothesis"
+    PREDICTION = "prediction"
+    RELATIONSHIP = "relationship"
+    REASONING_TRACE = "reasoning_trace"
+
+class ScientificObject(BaseModel):
+    """The base class from which all Prometheus scientific concepts derive."""
+    id: UUID4 = Field(default_factory=uuid.uuid4, description="Unique identifier for the object")
+    object_type: ObjectType = Field(..., description="The specific classification of this object")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of extraction/creation")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Arbitrary extension metadata (e.g., confidence scores)")
+
+class Paper(ScientificObject):
+    """Represents an ingested academic paper."""
+    object_type: ObjectType = ObjectType.PAPER
+    title: str = Field(..., description="Title of the research paper")
+    authors: List[str] = Field(default_factory=list)
+    doi: Optional[str] = Field(None, description="Digital Object Identifier")
+    publication_year: Optional[int] = Field(None)
+    abstract: Optional[str] = Field(None)
+    raw_text_source: Optional[str] = Field(None, description="Path or reference to stored clean text/markdown")
+
+class Claim(ScientificObject):
+    """A specific scientific statement or finding extracted from the literature."""
+    object_type: ObjectType = ObjectType.CLAIM
+    source_paper_id: UUID4 = Field(..., description="The ID of the Paper this claim originated from")
+    statement: str = Field(..., description="The actual scientific assertion (e.g., 'Silicon anodes experience 300% volume expansion')")
+    context: Optional[str] = Field(None, description="Surrounding context or conditions under which this claim is valid")
+
+class Evidence(ScientificObject):
+    """Data, metrics, or experimental results that support or contradict a Claim."""
+    object_type: ObjectType = ObjectType.EVIDENCE
+    source_claim_id: UUID4 = Field(..., description="The Claim this evidence attaches to")
+    data_points: Dict[str, Any] = Field(..., description="Extracted quantitative data, charts data, or metrics")
+    is_contradictory: bool = Field(default=False, description="True if this evidence challenges the claim")
+
+class Gap(ScientificObject):
+    """An identified contradiction, missing link, or unexplored area in the literature."""
+    object_type: ObjectType = ObjectType.GAP
+    description: str = Field(..., description="Detailed description of the discovered research gap")
+    contributing_claim_ids: List[UUID4] = Field(default_factory=list, description="Claims that highlight this gap")
+
+class Hypothesis(ScientificObject):
+    """A novel proposal generated to fill an identified Gap."""
+    object_type: ObjectType = ObjectType.HYPOTHESIS
+    target_gap_id: UUID4 = Field(..., description="The Gap this hypothesis attempts to address")
+    rationale: str = Field(..., description="The underlying scientific reasoning for why this might work")
+    proposed_mechanism: str = Field(..., description="The proposed physical/chemical mechanism")
+
+class Relationship(ScientificObject):
+    """Explicit link between two scientific objects to build the World Model Graph."""
+    object_type: ObjectType = ObjectType.RELATIONSHIP
+    source_id: UUID4 = Field(..., description="Origin node ID")
+    target_id: UUID4 = Field(..., description="Destination node ID")
+    relation_type: str = Field(..., description="E.g., 'CONTRADICTS', 'SUPPORTS', 'INHIBITS', 'CATALYZES'")
