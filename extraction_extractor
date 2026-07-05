@@ -1,0 +1,43 @@
+from typing import List, Dict, Any
+from uuid import UUID
+from prometheus.core.models import Paper, Claim, Evidence
+
+class ScientificExtractor:
+    """Processes ingested papers to extract fine-grained Claims and supporting Evidence."""
+    
+    def __init__(self):
+        pass
+
+    def extract_claims_from_payload(self, paper: Paper, extraction_payload: List[Dict[str, Any]]) -> List[Claim]:
+        """
+        Converts raw structured extraction fields (from LLM or rule-based parsing) 
+        into validated Claim objects linked directly to the parent Paper.
+        """
+        extracted_claims = []
+        
+        for item in extraction_payload:
+            claim = Claim(
+                source_paper_id=paper.id,
+                statement=item["statement"],
+                context=item.get("context")
+            )
+            extracted_claims.append(claim)
+            
+        return extracted_claims
+
+    def extract_evidence_for_claim(self, claim: Claim, evidence_payload: List[Dict[str, Any]]) -> List[Evidence]:
+        """
+        Extracts individual data metrics or contradictions, linking them 
+        explicitly back to their parent Claim ID.
+        """
+        extracted_evidence = []
+        
+        for item in evidence_payload:
+            evidence = Evidence(
+                source_claim_id=claim.id,
+                data_points=item.get("data_points", {}),
+                is_contradictory=item.get("is_contradictory", False)
+            )
+            extracted_evidence.append(evidence)
+            
+        return extracted_evidence
